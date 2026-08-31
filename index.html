@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neo Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --key-num: #2C2C2C;
+    --key-fn: #5F5F5F;
+    --key-op: #4D4D4D;
+    --accent: #FF9500;
+    --text: #FFFFFF;
+    --text-dim: #8E8E8E;
+  }
+
+  [data-theme="light"] {
+    --bg: #F2F2F2;
+    --key-num: #FFFFFF;
+    --key-fn: #D4D4D2;
+    --key-op: #E9E9EB;
+    --accent: #FF9500;
+    --text: #000000;
+    --text-dim: #6E6E6E;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    font-family: 'Roboto', system-ui, sans-serif;
+    color: var(--text);
+    transition: background 0.3s ease, color 0.3s ease;
+    padding: 16px;
+  }
+
+  .calculator {
+    width: 320px;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  /* ---- Header ---- */
+  .calc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .mode-switch { display: flex; gap: 6px; }
+
+  .mode-btn {
+    font-family: inherit;
+    font-weight: 500;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--text-dim);
+    cursor: pointer;
+  }
+  .mode-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .theme-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--key-fn);
+    color: var(--text);
+    font-size: 15px;
+    cursor: pointer;
+  }
+
+  /* ---- Memory row (STD/SCI only) ---- */
+  .memory-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .mem-btn {
+    flex: 1;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 8px 0;
+    border-radius: 20px;
+    background: var(--key-fn);
+    color: var(--text);
+    border: none;
+    cursor: pointer;
+  }
+  .mem-btn.has-value { background: var(--accent); color: #fff; }
+
+  /* ---- Display ---- */
+  .display {
+    padding: 24px 10px 14px;
+    text-align: right;
+    position: relative;
+  }
+  .history-line {
+    font-size: 13px;
+    color: var(--text-dim);
+    min-height: 16px;
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+  .result {
+    font-size: 40px;
+    font-weight: 400;
+    white-space: nowrap;
+    overflow-x: auto;
+    word-break: break-all;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .copy-btn.copied { color: var(--accent); }
+
+  /* ---- Extra rows above main keypad (scientific / programmer bases+hex) ---- */
+  .extra-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+  }
+  .extra-row {
+    display: grid;
+    grid-template-columns: repeat(4, 60px);
+    gap: 10px;
+  }
+  .extra-row.cols-5 { grid-template-columns: repeat(5, 46px); }
+  .extra-row .key { width: 46px; height: 46px; font-size: 13px; }
+
+  /* ---- Keypad: fixed-size circular keys, consistent across ALL modes ---- */
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(4, 60px);
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .key {
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 400;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    background: var(--key-num);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: filter 0.1s ease;
+    padding: 0;
+  }
+  .key:active { filter: brightness(1.3); }
+  .key:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  .key-small { font-size: 13px; }
+
+  .key-fn { background: var(--key-fn); font-size: 15px; }
+  .key-op { background: var(--key-op); font-size: 20px; }
+  .key-equals { background: var(--accent); color: #fff; font-size: 20px; }
+
+  .key-hex { background: var(--key-fn); font-size: 15px; }
+  .key-base {
+    background: var(--key-fn);
+    font-size: 12px;
+    width: 60px;
+    height: 40px;
+    border-radius: 20px;
+  }
+  .key-base.selected { background: var(--accent); color: #fff; }
+
+  .key-zero {
+    grid-column: span 2;
+    width: 130px;
+    border-radius: 30px;
+    justify-self: start;
+  }
+
+  .error-msg {
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    min-height: 14px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="calculator" id="calculator">
+
+  <div class="calc-header">
+    <div class="mode-switch">
+      <button class="mode-btn active" data-mode="standard">STD</button>
+      <button class="mode-btn" data-mode="scientific">SCI</button>
+      <button class="mode-btn" data-mode="programmer">PRG</button>
+    </div>
+    <button class="theme-btn" id="themeToggle" title="Toggle theme">☀</button>
+  </div>
+
+  <div class="memory-row" id="memoryRow">
+    <button class="mem-btn" data-mem="MC">MC</button>
+    <button class="mem-btn" data-mem="MR">MR</button>
+    <button class="mem-btn" data-mem="M+">M+</button>
+    <button class="mem-btn" data-mem="M-">M−</button>
+  </div>
+
+  <div class="display">
+    <button class="copy-btn" id="copyBtn" title="Copy result">⧉</button>
+    <div class="history-line" id="historyLine"></div>
+    <div class="result" id="result">0</div>
+  </div>
+
+  <!-- Scientific extra function rows (above main keypad) -->
+  <div class="extra-rows" id="sciExtraRows" hidden>
+    <div class="extra-row cols-5">
+      <button class="key key-fn key-small" data-paren="(">(</button>
+      <button class="key key-fn key-small" data-paren=")">)</button>
+      <button class="key key-fn key-small" data-action="factorial">x!</button>
+      <button class="key key-fn key-small" data-const="π">π</button>
+      <button class="key key-fn key-small" data-const="e">e</button>
+    </div>
+    <div class="extra-row cols-5">
+      <button class="key key-fn key-small" data-func="sin">sin</button>
+      <button class="key key-fn key-small" data-func="cos">cos</button>
+      <button class="key key-fn key-small" data-func="tan">tan</button>
+      <button class="key key-fn key-small" data-func="log">log</button>
+      <button class="key key-fn key-small" data-func="ln">ln</button>
+    </div>
+    <div class="extra-row cols-5">
+      <button class="key key-fn key-small" data-op="^">xʸ</button>
+      <button class="key key-fn key-small" data-func="sqrt">√</button>
+      <button class="key key-fn key-small" data-num="7">7</button>
+      <button class="key key-fn key-small" data-num="8">8</button>
+      <button class="key key-fn key-small" data-num="9">9</button>
+    </div>
+  </div>
+
+  <!-- Programmer extra rows: base selectors + hex letters (above main keypad) -->
+  <div class="extra-rows" id="progExtraRows" hidden>
+    <div class="extra-row">
+      <button class="key key-base" data-base-select="16">HEX</button>
+      <button class="key key-base" data-base-select="10">DEC</button>
+      <button class="key key-base" data-base-select="8">OCT</button>
+      <button class="key key-base" data-base-select="2">BIN</button>
+    </div>
+    <div class="extra-row">
+      <button class="key key-hex" data-num="A">A</button>
+      <button class="key key-hex" data-num="B">B</button>
+      <button class="key key-hex" data-num="C">C</button>
+      <button class="key key-hex" data-num="D">D</button>
+    </div>
+    <div class="extra-row">
+      <button class="key key-hex" data-num="E">E</button>
+      <button class="key key-hex" data-num="F">F</button>
+    </div>
+  </div>
+
+  <!-- Shared numeric keypad (Standard / Scientific / Programmer all use this) -->
+  <div class="keypad" id="mainKeypad">
+    <button class="key key-fn" data-action="clear">AC</button>
+    <button class="key key-fn" data-action="percent">%</button>
+    <button class="key key-fn" data-action="backspace">⌫</button>
+    <button class="key key-op" data-op="/">÷</button>
+
+    <button class="key key-num" data-num="7">7</button>
+    <button class="key key-num" data-num="8">8</button>
+    <button class="key key-num" data-num="9">9</button>
+    <button class="key key-op" data-op="*">×</button>
+
+    <button class="key key-num" data-num="4">4</button>
+    <button class="key key-num" data-num="5">5</button>
+    <button class="key key-num" data-num="6">6</button>
+    <button class="key key-op" data-op="-">−</button>
+
+    <button class="key key-num" data-num="1">1</button>
+    <button class="key key-num" data-num="2">2</button>
+    <button class="key key-num" data-num="3">3</button>
+    <button class="key key-op" data-op="+">+</button>
+
+    <button class="key key-num key-zero" data-num="0">0</button>
+    <button class="key key-num" data-num=".">.</button>
+    <button class="key key-equals" data-action="equals">=</button>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ================== State ==================
+  let mode = 'standard';
+  let expression = '';
+  let justEvaluated = false;
+  let memory = 0;
+
+  let progBase = 16;
+  let progValue = 0;
+  let progOperand = null;
+  let progOperator = null;
+  let pendingConversionBase = null;
+
+  // ================== DOM refs ==================
+  const $ = (id) => document.getElementById(id);
+  const resultEl = $('result');
+  const historyEl = $('historyLine');
+  const errorEl = $('errorMsg');
+  const memoryRow = $('memoryRow');
+  const sciExtraRows = $('sciExtraRows');
+  const progExtraRows = $('progExtraRows');
+  const themeToggle = $('themeToggle');
+  const copyBtn = $('copyBtn');
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    setTimeout(() => { errorEl.textContent = ''; }, 2200);
+  }
+
+  // ================== Safe math parser (no eval) ==================
+  function tokenize(expr) {
+    const regex = /sin|cos|tan|sqrt|log|ln|π|e|\d+\.?\d*|[+\-*/^!()]/g;
+    return expr.match(regex) || [];
+  }
+
+  function factorial(n) {
+    if (n < 0 || !Number.isInteger(n)) throw new Error('Invalid');
+    if (n > 170) throw new Error('Overflow');
+    let r = 1;
+    for (let i = 2; i <= n; i++) r *= i;
+    return r;
+  }
+
+  function evaluateExpression(expr) {
+    const tokens = tokenize(expr);
+    if (tokens.length === 0) throw new Error('Invalid');
+    let pos = 0;
+    const peek = () => tokens[pos];
+    const next = () => tokens[pos++];
+
+    function parseExpr() {
+      let value = parseTerm();
+      while (peek() === '+' || peek() === '-') {
+        const op = next();
+        const rhs = parseTerm();
+        value = op === '+' ? value + rhs : value - rhs;
+      }
+      return value;
+    }
+    function parseTerm() {
+      let value = parseUnary();
+      while (peek() === '*' || peek() === '/') {
+        const op = next();
+        const rhs = parseUnary();
+        if (op === '*') value *= rhs;
+        else { if (rhs === 0) throw new Error('DivZero'); value /= rhs; }
+      }
+      return value;
+    }
+    function parseUnary() {
+      if (peek() === '-') { next(); return -parsePower(); }
+      return parsePower();
+    }
+    function parsePower() {
+      let base = parsePostfix();
+      if (peek() === '^') { next(); base = Math.pow(base, parseUnary()); }
+      return base;
+    }
+    function parsePostfix() {
+      let value = parsePrimary();
+      while (peek() === '!') { next(); value = factorial(value); }
+      return value;
+    }
+    function parsePrimary() {
+      const tok = peek();
+      if (tok === undefined) throw new Error('Invalid');
+      if (tok === '(') {
+        next();
+        const value = parseExpr();
+        if (peek() !== ')') throw new Error('Invalid');
+        next();
+        return value;
+      }
+      if (['sin', 'cos', 'tan', 'sqrt', 'log', 'ln'].includes(tok)) {
+        next();
+        if (peek() !== '(') throw new Error('Invalid');
+        next();
+        const arg = parseExpr();
+        if (peek() !== ')') throw new Error('Invalid');
+        next();
+        switch (tok) {
+          case 'sin': return Math.sin(arg * Math.PI / 180);
+          case 'cos': return Math.cos(arg * Math.PI / 180);
+          case 'tan': return Math.tan(arg * Math.PI / 180);
+          case 'sqrt': if (arg < 0) throw new Error('Invalid'); return Math.sqrt(arg);
+          case 'log': if (arg <= 0) throw new Error('Invalid'); return Math.log10(arg);
+          case 'ln': if (arg <= 0) throw new Error('Invalid'); return Math.log(arg);
+        }
+      }
+      if (tok === 'π') { next(); return Math.PI; }
+      if (tok === 'e') { next(); return Math.E; }
+      if (/^\d+\.?\d*$/.test(tok)) { next(); return parseFloat(tok); }
+      throw new Error('Invalid');
+    }
+
+    const result = parseExpr();
+    if (pos !== tokens.length) throw new Error('Invalid');
+    if (!isFinite(result)) throw new Error('DivZero');
+    return result;
+  }
+
+  function formatNumber(n) { return String(parseFloat(n.toFixed(10))); }
+
+  // ================== Standard + Scientific ==================
+  function updateDisplay() { resultEl.textContent = expression === '' ? '0' : expression; }
+
+  function lastNumberSegment(expr) {
+    const match = expr.match(/(\d*\.?\d*)$/);
+    return match ? match[0] : '';
+  }
+
+  function pressNumber(num) {
+    if (justEvaluated) { expression = ''; justEvaluated = false; historyEl.textContent = ''; }
+    if (num === '.') {
+      const seg = lastNumberSegment(expression);
+      if (seg.includes('.')) return;
+      if (seg === '') expression += '0';
+    }
+    if (expression.length >= 40) return;
+    expression += num;
+    updateDisplay();
+  }
+
+  function pressOperator(op) {
+    if (expression === '' && op !== '-') return;
+    justEvaluated = false;
+    const lastChar = expression.slice(-1);
+    if ('+-*/^'.includes(lastChar)) expression = expression.slice(0, -1) + op;
+    else expression += op;
+    updateDisplay();
+  }
+
+  function pressFunction(name) {
+    if (justEvaluated) { expression = ''; justEvaluated = false; historyEl.textContent = ''; }
+    expression += name + '(';
+    updateDisplay();
+  }
+
+  function pressConstant(sym) {
+    if (justEvaluated) { expression = ''; justEvaluated = false; historyEl.textContent = ''; }
+    expression += sym;
+    updateDisplay();
+  }
+
+  function pressParen(paren) {
+    if (justEvaluated && paren === '(') { expression = ''; justEvaluated = false; historyEl.textContent = ''; }
+    expression += paren;
+    updateDisplay();
+  }
+
+  function pressFactorial() {
+    if (expression === '') return;
+    expression += '!';
+    updateDisplay();
+  }
+
+  function pressPercent() {
+    if (expression === '') return;
+    try {
+      const val = evaluateExpression(expression);
+      expression = formatNumber(val / 100);
+      justEvaluated = true;
+      updateDisplay();
+    } catch (e) { showError('Invalid input'); }
+  }
+
+  function pressEquals() {
+    if (expression === '') return;
+    try {
+      const value = evaluateExpression(expression);
+      historyEl.textContent = expression + ' =';
+      expression = formatNumber(value);
+      justEvaluated = true;
+      updateDisplay();
+    } catch (e) {
+      showError(e.message === 'DivZero' ? 'Cannot divide by zero' : 'Invalid expression');
+    }
+  }
+
+  function clearAll() {
+    expression = '';
+    justEvaluated = false;
+    historyEl.textContent = '';
+    updateDisplay();
+  }
+
+  function backspace() { expression = expression.slice(0, -1); updateDisplay(); }
+
+  // ================== Memory ==================
+  function updateMemoryIndicator() {
+    document.querySelectorAll('.mem-btn').forEach(btn => {
+      if (btn.dataset.mem === 'MR' || btn.dataset.mem === 'MC') {
+        btn.classList.toggle('has-value', memory !== 0);
+      }
+    });
+  }
+
+  function pressMemory(action) {
+    try {
+      const current = expression === '' ? 0 : evaluateExpression(expression);
+      if (action === 'MC') memory = 0;
+      else if (action === 'MR') { expression = formatNumber(memory); justEvaluated = true; updateDisplay(); }
+      else if (action === 'M+') memory += current;
+      else if (action === 'M-') memory -= current;
+      updateMemoryIndicator();
+    } catch (e) { showError('Invalid expression'); }
+  }
+
+  copyBtn.addEventListener('click', () => {
+    const text = resultEl.textContent;
+    if (!navigator.clipboard) { showError('Clipboard not available'); return; }
+    navigator.clipboard.writeText(text).then(() => {
+      copyBtn.classList.add('copied');
+      setTimeout(() => copyBtn.classList.remove('copied'), 900);
+    }).catch(() => showError('Copy failed'));
+  });
+
+  // ================== Programmer mode ==================
+  function isValidDigitForBase(char, base) {
+    const digits = '0123456789ABCDEF'.slice(0, base);
+    return digits.includes(char.toUpperCase());
+  }
+
+  function updateMainDisplayProg() {
+    resultEl.textContent = progValue === 0 ? '0' : progValue.toString(progBase).toUpperCase();
+  }
+
+  function updateProgrammerKeyAvailability() {
+    document.querySelectorAll('#mainKeypad .key-num, #progExtraRows .key-hex').forEach(btn => {
+      const val = btn.dataset.num;
+      const enabled = isValidDigitForBase(val, progBase);
+      btn.disabled = !enabled;
+    });
+  }
+
+  function pressNumberProgrammer(num) {
+    if (!isValidDigitForBase(num, progBase)) return;
+    const current = progValue === 0 ? '' : progValue.toString(progBase).toUpperCase();
+    const next = current + num;
+    if (next.length > 16) return;
+    progValue = parseInt(next, progBase);
+    updateMainDisplayProg();
+  }
+
+  function pressOperatorProgrammer(op) {
+    if (progOperator && progOperand !== null) pressEqualsProgrammer();
+    progOperand = progValue;
+    progOperator = op;
+    progValue = 0;
+    updateMainDisplayProg();
+  }
+
+  function selectConversionBase(base) {
+    pendingConversionBase = base;
+    document.querySelectorAll('.key-base').forEach(btn => {
+      btn.classList.toggle('selected', Number(btn.dataset.baseSelect) === base);
+    });
+  }
+
+  function pressEqualsProgrammer() {
+    if (progOperator !== null && progOperand !== null) {
+      try {
+        let result;
+        switch (progOperator) {
+          case '+': result = progOperand + progValue; break;
+          case '-': result = progOperand - progValue; break;
+          case '*': result = progOperand * progValue; break;
+          case '/':
+            if (progValue === 0) throw new Error('DivZero');
+            result = Math.trunc(progOperand / progValue);
+            break;
+          default: result = progValue;
+        }
+        progValue = result;
+        progOperand = null;
+        progOperator = null;
+      } catch (e) {
+        showError('Cannot divide by zero');
+        progOperand = null;
+        progOperator = null;
+        return;
+      }
+    }
+
+    if (pendingConversionBase !== null) {
+      progBase = pendingConversionBase;
+      pendingConversionBase = null;
+      document.querySelectorAll('.key-base').forEach(btn => btn.classList.remove('selected'));
+      updateProgrammerKeyAvailability();
+    }
+
+    updateMainDisplayProg();
+  }
+
+  function clearProgrammer() {
+    progValue = 0;
+    progOperand = null;
+    progOperator = null;
+    pendingConversionBase = null;
+    document.querySelectorAll('.key-base').forEach(btn => btn.classList.remove('selected'));
+    updateMainDisplayProg();
+  }
+
+  function backspaceProgrammer() {
+    const current = progValue.toString(progBase);
+    const next = current.slice(0, -1);
+    progValue = next === '' || next === '-' ? 0 : parseInt(next, progBase);
+    updateMainDisplayProg();
+  }
+
+  // ================== Mode switching ==================
+  function setMode(newMode) {
+    mode = newMode;
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === newMode));
+
+    sciExtraRows.hidden = newMode !== 'scientific';
+    progExtraRows.hidden = newMode !== 'programmer';
+    memoryRow.hidden = newMode === 'programmer';
+
+    document.querySelector('[data-num="."]').style.visibility = newMode === 'programmer' ? 'hidden' : 'visible';
+
+    if (newMode === 'programmer') {
+      progBase = 16;
+      clearProgrammer();
+      updateProgrammerKeyAvailability();
+    } else {
+      clearAll();
+      document.querySelectorAll('#mainKeypad .key-num, #progExtraRows .key-hex').forEach(btn => {
+        btn.disabled = false;
+      });
+    }
+    errorEl.textContent = '';
+  }
+
+  // ================== Event wiring ==================
+  document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+  document.querySelectorAll('.mem-btn').forEach(btn => btn.addEventListener('click', () => pressMemory(btn.dataset.mem)));
+
+  function routeKeyClick(btn) {
+    if (btn.disabled) return;
+
+    if (mode === 'programmer') {
+      if (btn.dataset.num !== undefined) pressNumberProgrammer(btn.dataset.num);
+      else if (btn.dataset.op !== undefined) pressOperatorProgrammer(btn.dataset.op);
+      else if (btn.dataset.baseSelect !== undefined) selectConversionBase(Number(btn.dataset.baseSelect));
+      else if (btn.dataset.action === 'clear') clearProgrammer();
+      else if (btn.dataset.action === 'backspace') backspaceProgrammer();
+      else if (btn.dataset.action === 'equals') pressEqualsProgrammer();
+      return;
+    }
+
+    if (btn.dataset.num !== undefined) pressNumber(btn.dataset.num);
+    else if (btn.dataset.op !== undefined) pressOperator(btn.dataset.op);
+    else if (btn.dataset.func !== undefined) pressFunction(btn.dataset.func);
+    else if (btn.dataset.const !== undefined) pressConstant(btn.dataset.const);
+    else if (btn.dataset.paren !== undefined) pressParen(btn.dataset.paren);
+    else if (btn.dataset.action === 'clear') clearAll();
+    else if (btn.dataset.action === 'backspace') backspace();
+    else if (btn.dataset.action === 'percent') pressPercent();
+    else if (btn.dataset.action === 'factorial') pressFactorial();
+    else if (btn.dataset.action === 'equals') pressEquals();
+  }
+
+  document.querySelectorAll('.key').forEach(btn => btn.addEventListener('click', () => routeKeyClick(btn)));
+
+  themeToggle.addEventListener('click', () => {
+    const isLight = document.body.getAttribute('data-theme') === 'light';
+    if (isLight) { document.body.removeAttribute('data-theme'); themeToggle.textContent = '☀'; }
+    else { document.body.setAttribute('data-theme', 'light'); themeToggle.textContent = '🌙'; }
+  });
+
+  // ================== Keyboard shortcuts ==================
+  document.addEventListener('keydown', (e) => {
+    const key = e.key;
+    if (mode === 'standard' || mode === 'scientific') {
+      if (/[0-9.]/.test(key)) { pressNumber(key); return; }
+      if (['+', '-', '*', '/', '^'].includes(key)) { pressOperator(key); return; }
+      if (key === '(' || key === ')') { pressParen(key); return; }
+      if (key === 'Enter' || key === '=') { e.preventDefault(); pressEquals(); return; }
+      if (key === 'Backspace') { backspace(); return; }
+      if (key === 'Escape') { clearAll(); return; }
+      if (key === '%') { pressPercent(); return; }
+    } else {
+      if (/[0-9a-fA-F]/.test(key)) { pressNumberProgrammer(key.toUpperCase()); return; }
+      if (['+', '-', '*', '/'].includes(key)) { pressOperatorProgrammer(key); return; }
+      if (key === 'Enter' || key === '=') { e.preventDefault(); pressEqualsProgrammer(); return; }
+      if (key === 'Backspace') { backspaceProgrammer(); return; }
+      if (key === 'Escape') { clearProgrammer(); return; }
+    }
+  });
+
+  // ================== Init ==================
+  updateDisplay();
+  updateMemoryIndicator();
+})();
+</script>
+</body>
+</html>
