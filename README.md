@@ -1,7 +1,7 @@
 # 🧮 Neo Calculator — Standard, Scientific & Programme
 
 🔗 Live Demo: 
-
+ https://shamaim-dev.github.io/Calculator/
 ---
 
 ## 📖 Overview
@@ -47,7 +47,7 @@ handles operator precedence — no `eval()` is used anywhere in the app.
 No installation, build tools, or dependencies required — the entire app 
 runs client-side from a single HTML file.
 
-🔗 Or view it live: 
+🔗 Or view it live:  https://shamaim-dev.github.io/Calculator/
 
 ---
 
